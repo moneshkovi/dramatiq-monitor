@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}message {{ detail.rid[:8] }} &middot; dramatiq-monitor{% endblock %}
+{% block content %}
+  <p class="breadcrumb"><a href="{{ url_for('messages_page', db=db, ns=ns, q=q, state=state) }}">&larr; {{ q }} &middot; {{ state }}</a></p>
+  <h1>{{ detail.actor_name if detail.actor_name else '(unknown actor)' }}</h1>
+
+  <dl class="detail-list">
+    <dt>Rid</dt><dd class="mono">{{ detail.rid }}</dd>
+    <dt>Message id</dt><dd class="mono">{{ detail.message_id }}</dd>
+    <dt>Queue</dt><dd>{{ detail.queue_name }}</dd>
+    <dt>State</dt><dd>{{ detail.state }}</dd>
+    <dt>Enqueued</dt><dd>{{ detail.enqueued_ms | fmt_ts }} ({{ detail.enqueued_ms | fmt_age_since(now_ms) }} ago)</dd>
+    <dt>Eta</dt><dd>{{ detail.eta_ms | fmt_ts if detail.eta_ms is not none else '-' }}</dd>
+    <dt>Retries</dt><dd>{{ detail.retries }}</dd>
+    {% if detail.died_at_ms is not none %}
+      <dt>Died at</dt><dd>{{ detail.died_at_ms | fmt_ts }} ({{ detail.died_at_ms | fmt_age_since(now_ms) }} ago)</dd>
+    {% endif %}
+    <dt>TTL of message hash</dt>
+    <dd>
+      {{ detail.msgs_key_ttl_s ~ 's' if detail.msgs_key_ttl_s is not none else 'no expiry' }}
+      {% if detail.remaining_ttl_hint_ms is not none %}
+        &middot; est. dead-letter TTL remaining: {{ detail.remaining_ttl_hint_ms | fmt_age }}
+      {% endif %}
+    </dd>
+    <dt>Raw size</dt><dd>{{ detail.raw_size_bytes }} bytes</dd>
+  </dl>
+
+  <h2>Payload</h2>
+  <pre class="payload-pre">{{ detail.payload_pretty }}</pre>
+
+  {% if detail.traceback %}
+    <h2>Traceback</h2>
+    <pre class="payload-pre">{{ detail.traceback }}</pre>
+  {% endif %}
+
+  {% if not config.read_only %}
+    <div class="action-bar">
+      {% if state == 'dead' %}
+        <form method="post" action="{{ url_for('action_requeue_dead', db=db, ns=ns, q=q, rid=detail.rid) }}"
+              hx-confirm="Requeue this message?">
+          <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+          <button type="submit" class="btn-action">Requeue</button>
+        </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('action_delete_message', db=db, ns=ns, q=q, state=state, rid=detail.rid) }}"
+            hx-confirm="Delete this message? This cannot be undone.">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+        <button type="submit" class="btn-action btn-danger">Delete</button>
+      </form>
+    </div>
+  {% endif %}
+{% endblock %}

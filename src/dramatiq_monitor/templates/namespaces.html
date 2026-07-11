@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Namespaces &middot; dramatiq-monitor{% endblock %}
+{% block content %}
+  <div class="hero">
+    <pre class="ascii-blob" data-ascii-blob aria-hidden="true"></pre>
+    <div class="hero-label"><span class="hero-dot">&#9679;</span> dramatiq-monitor</div>
+  </div>
+  <script src="{{ url_for('static', path='ascii-blob.js') }}"></script>
+  <h1>Namespaces</h1>
+  {% if not rows %}
+    <p class="muted">No namespaces discovered.</p>
+  {% else %}
+    <div class="panel">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>DB</th>
+            <th>Namespace</th>
+            <th class="num">Waiting</th>
+            <th class="num">Failed</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td class="mono">{{ row.ref.db }}</td>
+              <td>{{ row.ref.ns }}</td>
+              <td class="num {{ 'dim' if row.waiting_total == 0 }}">{{ row.waiting_total }}</td>
+              <td class="num {{ 'dim' if row.failed_total == 0 else 'status-failed' }}">{{ row.failed_total }}</td>
+              <td><a href="{{ url_for('overview', db=row.ref.db, ns=row.ref.ns) }}">overview &rarr;</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+{% endblock %}

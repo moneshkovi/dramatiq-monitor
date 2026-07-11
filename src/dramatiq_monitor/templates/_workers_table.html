@@ -1,0 +1,16 @@
+{% if not workers %}
+  <tr><td colspan="6" class="muted">No workers discovered.</td></tr>
+{% else %}
+  {% for w in workers %}
+    <tr>
+      <td class="mono" title="{{ w.worker_id }}">{{ w.worker_id[:8] }}</td>
+      <td>{{ w.meta.name if w.meta and w.meta.name else '-' }}</td>
+      <td>{{ w.meta.host if w.meta and w.meta.host else '-' }}</td>
+      <td>{{ w.meta.pool if w.meta and w.meta.pool else '-' }}</td>
+      <td class="num mono {{ 'status-live' if w.heartbeat_age_ms is not none and w.heartbeat_age_ms < 60000 else 'status-stale' }}">
+        {{ w.heartbeat_age_ms | fmt_age }}
+      </td>
+      <td class="num {{ 'dim' if w.inflight == 0 }}">{{ w.inflight }}</td>
+    </tr>
+  {% endfor %}
+{% endif %}

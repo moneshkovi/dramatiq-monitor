@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}db {{ db }} &middot; {{ ns }} &middot; dramatiq-monitor{% endblock %}
+{% block content %}
+  <h1>db {{ db }} &middot; {{ ns }}</h1>
+
+  <section>
+    <h2>Queues</h2>
+    <div class="panel">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Queue</th>
+            <th class="num">Waiting</th>
+            <th class="num">Delayed</th>
+            <th class="num">Live</th>
+            <th class="num">Orphaned</th>
+            <th class="num">Failed</th>
+            <th class="num">Oldest waiting</th>
+          </tr>
+        </thead>
+        <tbody id="queues"
+               hx-get="{{ url_for('fragment_queues', db=db, ns=ns) }}"
+               hx-trigger="every {{ config.poll_queues_s }}s"
+               hx-swap="innerHTML">{% include "_queues_table.html" %}</tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Workers</h2>
+    <div class="panel">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>Name</th>
+            <th>Host</th>
+            <th>Pool</th>
+            <th class="num">Heartbeat</th>
+            <th class="num">Inflight</th>
+          </tr>
+        </thead>
+        <tbody id="workers"
+               hx-get="{{ url_for('fragment_workers', db=db, ns=ns) }}"
+               hx-trigger="every {{ config.poll_workers_s }}s"
+               hx-swap="innerHTML">{% include "_workers_table.html" %}</tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

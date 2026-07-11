@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<!-- htmx v1.9.12 vendored from
+     https://raw.githubusercontent.com/bigskysoftware/htmx/v1.9.12/dist/htmx.min.js
+     see static/VENDORED.md -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}dramatiq-monitor{% endblock %}</title>
+  <meta name="csrf-token" content="{{ request.state.csrf_token }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+  <script src="{{ url_for('static', path='htmx.min.js') }}"></script>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ request.state.csrf_token }}"}'>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><a href="{{ url_for('index') }}">dramatiq-monitor</a></div>
+      <div class="redis-target">{{ config.host }}:{{ config.port }}</div>
+      <div class="side-section">
+        <div class="side-section-label">Namespaces</div>
+        {% if namespaces is defined and namespaces %}
+          {% for nref in namespaces %}
+            <a class="side-item {{ 'side-item-active' if db is defined and ns is defined and nref.db == db and nref.ns == ns }}"
+               href="{{ url_for('overview', db=nref.db, ns=nref.ns) }}">db {{ nref.db }} &middot; {{ nref.ns }}</a>
+          {% endfor %}
+        {% endif %}
+      </div>
+      <div class="sidebar-spacer"></div>
+      {% if config.read_only %}
+        <span class="badge badge-readonly">read-only</span>
+      {% endif %}
+    </aside>
+    <main class="content">
+      <div class="top-strip">
+        {% if db is defined and ns is defined %}
+          <span class="ns-active">db {{ db }} &middot; {{ ns }}</span>
+        {% else %}
+          <span></span>
+        {% endif %}
+      </div>
+      <div class="content-body">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+</body>
+</html>

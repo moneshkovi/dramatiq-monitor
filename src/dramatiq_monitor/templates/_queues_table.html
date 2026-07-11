@@ -1,0 +1,18 @@
+{% if not stats %}
+  <tr><td colspan="7" class="muted">No queues discovered.</td></tr>
+{% else %}
+  {% for q in stats %}
+    <tr>
+      <td><a href="{{ url_for('messages_page', db=db, ns=ns, q=q.name, state='waiting') }}">{{ q.name }}</a></td>
+      <td class="num {{ 'dim' if q.waiting == 0 }}">{{ q.waiting }}</td>
+      <td class="num {{ 'dim' if q.delayed == 0 }}">{{ q.delayed }}</td>
+      <td class="num {{ 'dim' if q.live == 0 }}">{{ q.live }}</td>
+      <td class="num {{ 'dim' if q.orphaned == 0 else 'status-orphaned' }}">{{ q.orphaned }}</td>
+      <td class="num {{ 'dim' if q.failed == 0 else 'status-failed' }}">
+        <a href="{{ url_for('messages_page', db=db, ns=ns, q=q.name, state='dead') }}">{{ q.failed }}</a>
+        {% if q.failed_drift %}<span class="badge badge-warn" title="XQ / XQ.msgs counts disagree (TTL sweep race)">&#9888;</span>{% endif %}
+      </td>
+      <td class="num mono">{{ q.oldest_waiting_age_ms | fmt_age }}</td>
+    </tr>
+  {% endfor %}
+{% endif %}

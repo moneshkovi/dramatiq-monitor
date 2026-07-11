@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ q }} &middot; {{ state }} &middot; dramatiq-monitor{% endblock %}
+{% block content %}
+  <p class="breadcrumb"><a href="{{ url_for('overview', db=db, ns=ns) }}">&larr; db {{ db }} &middot; {{ ns }}</a></p>
+  <h1>{{ q }}</h1>
+
+  {% if flash %}
+    <p class="flash">{{ 'That message is no longer available.' if flash == 'gone' else flash }}</p>
+  {% endif %}
+
+  <nav class="tab-bar">
+    {% for s in states %}
+      <a class="tab {{ 'tab-active' if s == state }}" href="{{ url_for('messages_page', db=db, ns=ns, q=q, state=s) }}">
+        {{ s }}
+        {% if queue_stat %}
+          <span class="muted">
+            {% if s == 'waiting' %}({{ queue_stat.waiting }}){% endif %}
+            {% if s == 'delayed' %}({{ queue_stat.delayed }}){% endif %}
+            {% if s == 'dead' %}({{ queue_stat.failed }}){% endif %}
+            {% if s == 'inflight' %}({{ queue_stat.live + queue_stat.orphaned }}){% endif %}
+          </span>
+        {% endif %}
+      </a>
+    {% endfor %}
+  </nav>
+
+  <button type="button" class="btn-refresh"
+          hx-get="{{ url_for('fragment_message_rows', db=db, ns=ns, q=q, state=state) }}"
+          hx-target="#message-rows" hx-swap="innerHTML">Refresh</button>
+
+  {% if not config.read_only %}
+    {% if state == 'dead' %}
+      <div class="bulk-actions">
+        <form method="post" action="{{ url_for('action_requeue_all_dead', db=db, ns=ns, q=q) }}"
+              hx-confirm="Requeue ALL dead messages in {{ q }}?">
+          <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+          <label>Requeue all &mdash; type <code>{{ q }}</code> to confirm:
+            <input type="text" name="confirm" placeholder="{{ q }}" required>
+          </label>
+          <button type="submit" class="btn-action">Requeue all</button>
+        </form>
+        <form method="post" action="{{ url_for('action_delete_all_dead', db=db, ns=ns, q=q) }}"
+              hx-confirm="Delete ALL dead messages in {{ q }}? This cannot be undone.">
+          <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+          <label>Delete all &mdash; type <code>{{ q }}</code> to confirm:
+            <input type="text" name="confirm" placeholder="{{ q }}" required>
+          </label>
+          <button type="submit" class="btn-action btn-danger">Delete all</button>
+        </form>
+      </div>
+    {% elif state == 'waiting' %}
+      <div class="bulk-actions">
+        <form method="post" action="{{ url_for('action_purge_queue', db=db, ns=ns, q=q) }}"
+              hx-confirm="Purge ALL waiting messages in {{ q }}? This cannot be undone.">
+          <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+          <label>Purge &mdash; type <code>{{ q }}</code> to confirm:
+            <input type="text" name="confirm" placeholder="{{ q }}" required>
+          </label>
+          <button type="submit" class="btn-action btn-danger">Purge</button>
+        </form>
+      </div>
+    {% endif %}
+  {% endif %}
+
+  <div class="panel">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Actor</th>
+          <th>Rid</th>
+          <th>Message id</th>
+          <th>Enqueued</th>
+          <th>
+            {% if state == 'delayed' %}Eta{% elif state == 'dead' %}Died at{% elif state == 'inflight' %}Worker{% else %}-{% endif %}
+          </th>
+          <th class="num">Retries</th>
+          {% if not config.read_only and state == 'inflight' %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody id="message-rows">{% include "_message_rows.html" %}</tbody>
+    </table>
+  </div>
+{% endblock %}

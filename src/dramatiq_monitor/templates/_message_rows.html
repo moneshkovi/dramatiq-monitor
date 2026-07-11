@@ -1,0 +1,52 @@
+{% set show_actions = not config.read_only and state == 'inflight' %}
+{% set col_count = 7 if show_actions else 6 %}
+{% if not page.items %}
+  <tr><td colspan="{{ col_count }}" class="muted">No messages.</td></tr>
+{% else %}
+  {% for m in page.items %}
+    <tr>
+      <td>{{ m.actor_name if m.actor_name else '-' }}</td>
+      <td class="mono" title="{{ m.rid }}"><a href="{{ url_for('message_detail_page', db=db, ns=ns, q=q, state=state, rid=m.rid) }}">{{ m.rid[:8] }}</a></td>
+      <td class="mono" title="{{ m.message_id }}">{{ m.message_id[:8] if m.message_id else '-' }}</td>
+      <td class="mono">{{ m.enqueued_ms | fmt_age_since(now_ms) }}</td>
+      <td class="mono">
+        {% if state == 'delayed' %}
+          {{ m.extra.dq_score | fmt_ts if m.extra.dq_score is defined else (m.eta_ms | fmt_ts) }}
+        {% elif state == 'dead' %}
+          {{ m.extra.died_at_ms | fmt_ts if m.extra.died_at_ms is defined else '-' }}
+        {% elif state == 'inflight' %}
+          <span title="{{ m.extra.worker_id }}" class="{{ 'status-stale' if m.extra.stale else 'status-live' }}">{{ m.extra.worker_id[:8] if m.extra.worker_id else '-' }}</span>
+        {% else %}
+          -
+        {% endif %}
+      </td>
+      <td class="num {{ 'dim' if m.retries == 0 }}">{{ m.retries }}</td>
+      {% if show_actions %}
+        <td>
+          {% if m.extra.stale %}
+            <form method="post" action="{{ url_for('action_delete_message', db=db, ns=ns, q=q, state=state, rid=m.rid) }}"
+                  hx-confirm="Delete this in-flight message from a stale worker?">
+              <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+              <button type="submit" class="btn-action btn-danger btn-small">Delete</button>
+            </form>
+          {% endif %}
+        </td>
+      {% endif %}
+    </tr>
+    {% if m.extra.missing_payload %}
+      <tr><td colspan="{{ col_count }}" class="muted">&#9888; payload missing for {{ m.rid[:8] }}</td></tr>
+    {% endif %}
+  {% endfor %}
+{% endif %}
+<tr class="pagination-row">
+  <td colspan="{{ col_count }}">
+    {% if request.query_params.get('cursor') %}
+      <a href="{{ url_for('messages_page', db=db, ns=ns, q=q, state=state) }}">&laquo; first</a>
+    {% endif %}
+    {% if page.next_cursor %}
+      <a hx-get="{{ url_for('fragment_message_rows', db=db, ns=ns, q=q, state=state) }}?cursor={{ page.next_cursor }}"
+         hx-target="closest tbody" hx-swap="innerHTML"
+         href="{{ url_for('messages_page', db=db, ns=ns, q=q, state=state) }}?cursor={{ page.next_cursor }}">next &raquo;</a>
+    {% endif %}
+  </td>
+</tr>
