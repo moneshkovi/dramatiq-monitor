@@ -107,12 +107,26 @@ class CSRFMiddleware:
     async def _call_and_set_cookie(
         self, scope: Scope, receive: Receive, send: Send, request: Request, is_api: bool
     ) -> None:
-        token = make_token(self.secret)
+        # Reuse an existing valid token rather than minting one on every GET.
+        # Re-issuing per request rotated the cookie out from under any already-
+        # rendered form: every htmx fragment poll is a GET, so with a polling tab
+        # open the cookie changed every few seconds and a form that took longer than
+        # one poll interval to submit (delete/purge, which require typing the queue
+        # name to confirm) failed the double-submit check with a spurious 403. A
+        # stable cookie keeps the token valid across polls and tabs; it is still
+        # HMAC-verified and must still match the form/header token.
+        existing = request.cookies.get(COOKIE_NAME, "")
+        if existing and _verify_token(self.secret, existing):
+            token = existing
+            set_cookie = False
+        else:
+            token = make_token(self.secret)
+            set_cookie = True
         scope.setdefault("state", {})
         scope["state"]["csrf_token"] = token
 
         async def _send(message: Message) -> None:
-            if message["type"] == "http.response.start" and not is_api:
+            if message["type"] == "http.response.start" and not is_api and set_cookie:
                 response_headers = Response(headers={})
                 response_headers.raw_headers = list(message.get("headers", []))
                 response_headers.set_cookie(

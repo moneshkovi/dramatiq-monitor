@@ -230,3 +230,28 @@ def test_csrf_api_post_with_json_content_type_no_token_needed():
 
     assert resp.status_code == 200
     assert resp.json()["ok"] is True
+
+
+def test_csrf_token_survives_intervening_get_polls():
+    # Regression: htmx fragment polls are GETs. Re-minting the cookie on every GET
+    # rotated the token out from under an already-rendered form, so an action that
+    # took longer than one poll interval to submit (delete/purge, which require
+    # typing the queue name) hit a spurious "CSRF token missing or invalid" 403.
+    r = fakeredis.FakeRedis(decode_responses=False)
+    created = seed_queue(r, "dramatiq-dev", "orders", dead=1)
+    rid = created["dead"][0]
+    client = _client_for({0: r})
+
+    token = _get_csrf_token(client, "/ns/0/dramatiq-dev/queues/orders/dead")
+    # Background fragment polls between rendering the form and submitting it.
+    client.get("/fragments/ns/0/dramatiq-dev/queues")
+    client.get("/fragments/ns/0/dramatiq-dev/queues")
+
+    # The token captured before the polls must still be accepted.
+    resp = client.post(
+        f"/ns/0/dramatiq-dev/queues/orders/dead/{rid}/requeue",
+        data={"csrf_token": token},
+        follow_redirects=False,
+    )
+
+    assert resp.status_code == 303

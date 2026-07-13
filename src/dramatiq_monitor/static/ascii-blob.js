@@ -53,8 +53,13 @@
 
     window.addEventListener("mousemove", function (e) {
       var r = el.getBoundingClientRect();
-      target.x = ((e.clientX - r.left) / r.width) * COLS;
-      target.y = ((e.clientY - r.top) / r.height) * ROWS;
+      // Skip when the <pre> hasn't been laid out yet (empty first frame, width 0):
+      // dividing by a zero-sized rect yields a non-finite target that poisons
+      // `eased` to NaN, which then renders RAMP[NaN] -> "undefined" everywhere.
+      if (r.width > 0 && r.height > 0) {
+        target.x = ((e.clientX - r.left) / r.width) * COLS;
+        target.y = ((e.clientY - r.top) / r.height) * ROWS;
+      }
       inside = e.clientX >= r.left - 40 && e.clientX <= r.right + 40 &&
                e.clientY >= r.top - 40 && e.clientY <= r.bottom + 40;
     });
